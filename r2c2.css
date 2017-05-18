@@ -1,0 +1,91 @@
+
+body
+{
+	/*position: fixed;*/
+	/*top: 0px;
+	left: 0px;*/
+
+	margin: 0px;
+	padding: 0px;
+
+	background-color: rgb(240,240,240);
+	
+
+	font-family: Verdana, Arial, Sans-serif;
+
+	/*transition: border 0.5s, padding 0.5s;*/
+}
+/*
+body:hover
+{
+	border: solid 3px teal;
+	padding: 8px;
+}
+ */
+section
+{
+	position: absolute;
+	width: 99%;
+	height: 99%;
+
+	margin: 0px;
+	padding: 0px;
+	
+	border: solid 1px teal;
+	overflow: auto;
+}
+
+ul
+{
+	margin: 0px;
+	padding: 0px;
+
+}
+
+li
+{
+	width: auto;
+	max-width: 75%;
+	list-style: none;
+
+	margin: 0px;
+}
+
+.msg-user, .msg
+{
+	border-radius: 15px;
+	padding: 10px;
+}
+
+ li.msg-user 
+{
+	margin-left: auto;
+	margin-right: 0px;
+
+	text-align: right;
+}
+
+div.msg-user
+{
+	display: block;
+
+	background-color: dodgerblue;
+	text-align: left;
+}
+
+ li.msg
+{
+	margin-left: 0px;
+	margin-right: auto;
+}
+
+div.msg
+{
+	background-color: lightblue;
+	text-align: left;
+}
+
+.messages
+{
+	list-style: none;
+}
