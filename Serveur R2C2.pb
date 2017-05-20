@@ -5,6 +5,18 @@
 #Server = 1
 #R2C2_Version$ = "0.2.2"
 
+CompilerIf #PB_Compiler_OS = #PB_OS_Linux
+  #KeyCode_Enter = 10
+  #KeyCode_Return = 127
+  #KeyCode_Escape = 27
+  #LineBreak$ = #LF$
+CompilerElse
+  #KeyCode_Enter = 13
+  #KeyCode_Return = 8
+  #KeyCode_Escape = 27
+  #LineBreak$ = #CRLF$
+CompilerEndIf
+
 EnumerationBinary CommandLevel
   #CMD_User             ;Utilisateur de base,pas de commandes
   #CMD_Primary          ;Commandes informatives (/list, /motd...)
@@ -143,7 +155,7 @@ If CreateNetworkServer(#Server,#ServerPort)
         
         WaitingClients(Str(clientSocket))\ClientIP = clientIP
         
-        PrintN(~"\rNew client has connected : "+IPString(clientIP)+#CRLF$+"Waiting authentification probe...")
+        PrintN(~"\rNew client has connected : "+IPString(clientIP)+#LineBreak$+"Waiting authentification probe...")
         SendNetworkString(clientSocket,"Welcome on the R2C2 Communication Server ! To log in, send 'ALOHA://<username>//' to the Server. Port : 987.")
         
       Case #PB_NetworkEvent_Data
@@ -226,7 +238,7 @@ If CreateNetworkServer(#Server,#ServerPort)
           Print(InKey$)
         EndIf
         Select Raw
-          Case 13 ;La touche Entrée a été utilisée
+          Case #KeyCode_Enter ;La touche Entrée a été utilisée
             ExecCommand(Input$,@Server)
             Input$ = ""
             
@@ -235,7 +247,7 @@ If CreateNetworkServer(#Server,#ServerPort)
             ConsoleColor(7,0)
             Print(">")
             
-          Case 8
+          Case #KeyCode_Return
             Input$ = Left(Input$,Len(Input$)-2)
             ConsoleColor(10,0)
             Print(#CR$+ServerPrompt$)
@@ -252,7 +264,7 @@ Else
 EndIf
 
 Procedure ExecCommand(Command$,*user.ACL)
-  Print(#CRLF$)
+  PrintN("")
   Command$ + " "
   
   If Left(Command$,1) = "/"
@@ -330,7 +342,7 @@ Procedure ExecCommand(Command$,*user.ACL)
         
       Case "/list"
         If *user\AdmFlags & #CMD_Primary
-          returnString$ = "Users : "+ #CRLF$
+          returnString$ = "Users : "+ #LineBreak$
           ForEach AuthClients()
             returnString$ + AuthClients()\ClientName + " : "+IPString(AuthClients()\ClientIP)+", socket : "+AuthClients()\ClientSocket+", rang : "
             Select AuthClients()\AdmFlags
@@ -340,7 +352,7 @@ Procedure ExecCommand(Command$,*user.ACL)
               Case #SpecialAIT : returnString$ + "Administrateur Interne Total"
               Default : returnString$ + "Statut spécial non reconnu : "+Bin(AuthClients()\AdmFlags,#PB_Byte)
             EndSelect  
-            returnString$ + #CRLF$
+            returnString$ + #LineBreak$
           Next
           
           SendMessage(*user\ClientSocket,returnString$,0)
@@ -437,15 +449,15 @@ Procedure SetClientLevel(socket, AdminFlags.b)
     
   EndIf
 EndProcedure
-; IDE Options = PureBasic 5.60 (Windows - x64)
+; IDE Options = PureBasic 5.51 (Linux - x64)
 ; ExecutableFormat = Console
-; CursorPosition = 28
-; FirstLine = 406
+; CursorPosition = 354
+; FirstLine = 418
 ; Folding = --
 ; EnableXP
-; Executable = G:\PureWeb Server\www\r2c2\R2C2_Server.exe
+; Executable = R2C2_Server.app
 ; CompileSourceDirectory
-; Compiler = PureBasic 5.60 (Windows - x64)
-; EnableCompileCount = 16
-; EnableBuildCount = 4
+; Compiler = PureBasic 5.51 (Linux - x64)
+; EnableCompileCount = 18
+; EnableBuildCount = 6
 ; EnableExeConstant

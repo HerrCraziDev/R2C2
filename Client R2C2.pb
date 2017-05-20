@@ -5,6 +5,16 @@
 #MAX_INFO_RETRY = 987
 #R2C2_Version$ = "0.2.2"
 
+CompilerIf #PB_Compiler_OS = #PB_OS_Linux
+  #KeyCode_Enter = 10
+  #KeyCode_Return = 127
+  #KeyCode_Escape = 27
+CompilerElse
+  #KeyCode_Enter = 13
+  #KeyCode_Return = 8
+  #KeyCode_Escape = 27
+CompilerEndIf
+
 EnumerationBinary AdminLevels
   #Authentified
   #Moderator
@@ -138,17 +148,18 @@ If socket
       Case #PB_NetworkEvent_None
         InKey$ = Inkey()
         Raw = RawKey()
-        If InKey$ <> ""
+        
+        If InKey$ <> "" And Raw <> #KeyCode_Enter
           Input$ + InKey$
           Print(InKey$)
         EndIf
         
         Select Raw
-          Case 13 ;Entrée
+          Case #KeyCode_Enter ;Entrée
             If Left(Input$,1) = "/"
               SendNetworkString(socket,"CMD://"+Input$,#PB_UTF8)
               Input$ = ""
-              Print(#CRLF$)
+              PrintN("")
               
               Prompt()
             Else
@@ -157,14 +168,14 @@ If socket
             EndIf 
             
             
-          Case 8 ;Retour
+          Case #KeyCode_Return ;Retour
             Input$ = Left(Input$,Len(Input$)-2)
             Prompt()
             
         EndSelect
         
     EndSelect
-  Until RawKey() = 27
+  Until RawKey() = #KeyCode_Escape
   
 Else
   Error("Impossible de se connecter au serveur")
@@ -203,7 +214,7 @@ Procedure PrintMessage(msg$)
   Print(~"\r["+Sender$+"] : ")
   
   ConsoleColor(7,0)
-  Print(Message$+#CRLF$)
+  PrintN(Message$)
 EndProcedure
 
 Procedure ConnectR2C2Server(socket)
@@ -215,8 +226,8 @@ Procedure ConnectR2C2Server(socket)
   Delay(400)
   PrintN("Initialisation du protocole R2C2...")
   
-  
   nEvent = NetworkClientEvent(socket)
+  
   If nEvent = #PB_NetworkEvent_Data
     ReceiveNetworkData(socket,*inBuf,#RECBUFSZ)
     recStr$ = PeekS(*inBuf,-1,#PB_UTF8)
@@ -307,6 +318,7 @@ Procedure ConnectR2C2Server(socket)
     If isAuth
     EnableGraphicalConsole(1)
     ClearConsole()
+    ConsoleLocate(0,0)
     EnableGraphicalConsole(0)
     
     ConsoleColor(0,7)
@@ -330,9 +342,14 @@ EndProcedure
 
 
 
-
-; IDE Options = PureBasic 5.60 (Windows - x64)
-; CursorPosition = 5
-; Folding = -
+; IDE Options = PureBasic 5.51 (Linux - x64)
+; ExecutableFormat = Console
+; CursorPosition = 320
+; FirstLine = 310
+; Folding = --
 ; EnableXP
-; Executable = G:\PureWeb Server\www\r2c2\R2C2_Client.exe
+; Executable = R2C2_Client.app
+; CompileSourceDirectory
+; EnableCompileCount = 5
+; EnableBuildCount = 3
+; EnableExeConstant
