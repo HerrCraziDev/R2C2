@@ -3,7 +3,7 @@
 #SNDBUFSZ = 65000
 #ServerPort = 987
 #Server = 1
-#R2C2_Version$ = "0.2.2"
+#R2C2_Version$ = "0.2.3"
 
 CompilerIf #PB_Compiler_OS = #PB_OS_Linux
   #KeyCode_Enter = 10
@@ -16,6 +16,11 @@ CompilerElse
   #KeyCode_Escape = 27
   #LineBreak$ = #CRLF$
 CompilerEndIf
+
+Enumeration 
+  #RegEx_Username
+  #RegEx_Password
+EndEnumeration
 
 EnumerationBinary CommandLevel
   #CMD_User             ;Utilisateur de base,pas de commandes
@@ -37,9 +42,9 @@ EnumerationBinary AdminLevels
 EndEnumeration
 
 MotD$ = "Bienvenue ! Vous pouvez a présent discuter sur ce serveur :) Enjoy !"
-ServerPrompt$ = "R2C2 server"
-Passwd$ = "drowssap"
-
+Global ServerPrompt$ = "R2C2 server"
+Global Passwd$ = "drowssap"
+Global Port = #ServerPort
 
 Macro Error(Text)
   ConsoleColor(12,0)
@@ -93,6 +98,8 @@ Declare GetClientSocketByIP(IP$)
 Declare GetClientSocketByName(Name$)
 Declare SendMessage(Dest,Message$,isCommandResult=0)
 Declare SetClientLevel(socket,AdminFlags.b)
+Declare CheckName(Name$)
+Declare .s SetR2C2ServerAttribute(Attribute$, Value$)
 
 Global NewMap AuthClients.ACL()
 
@@ -110,18 +117,19 @@ Global *serverInfo.SERVERINFO = AllocateStructure(SERVERINFO)
 ;{ Paramétres par défaut
 With *serverInfo
   \ServerName = "R2C2 Official"
-  \Desc = "Serveur R2C2 officiel, libre et ouvert. Actuellement en stade de test, version 0.2.2. Les commandes utilisateurs sont maintenant disponibles."
-  \MotD = "[Betatest 3] Bienvenue sur le serveur !"
+  \Desc = "Serveur R2C2 officiel, libre et ouvert. Actuellement en stade de test, version 0.2.2. Les commandes utilisateurs sont maintenant disponibles (/help pour + d'infos)."
+  \MotD = "[Betatest 4] Bienvenue sur le serveur !"
   \IsPasswd = 0
   \UsernameDialogLabel = "Choisissez votre nom d'utilisateur (pseudo) : "
   \RegEx_Username = "[a-zA-Z0-9_][^ ]"
-  \PasswdDialogLabel = "Entrez le mot de passe de  connection à ce serveur : "
-  \RegEx_Passwd = "[a-zA-Z]"
+  \PasswdDialogLabel = "Entrez le mot de passe de connection à ce serveur : "
+  \RegEx_Passwd = "[a-zA-Z0-9]"
   \defFlags = #Authentified
 EndWith
 ;}
 
-
+CreateRegularExpression(#RegEx_Username,*serverInfo\RegEx_Username)
+CreateRegularExpression(#RegEx_Password,*serverInfo\RegEx_Passwd)
 
 OpenConsole("R2C2 Remote Raw Client Connection")
 
@@ -132,7 +140,11 @@ EndIf
 *inBuf = AllocateMemory(#RECBUFSZ)
 *outBuf = AllocateMemory(#SNDBUFSZ)
 
-If CreateNetworkServer(#Server,#ServerPort)
+If CountProgramParameters()
+  Port = Val(ProgramParameter())
+EndIf
+
+If CreateNetworkServer(#Server,Port)
   
   ConsoleTitle("R2C2 Remote Raw Client Connection - IP : ")
   ConsoleColor(10,0)
@@ -145,6 +157,7 @@ If CreateNetworkServer(#Server,#ServerPort)
     
     sEvent = NetworkServerEvent(#Server)
     clientSocket = EventClient() : ClientSocket$ = Str(clientSocket)
+    
     If clientSocket
       clientIP = GetClientIP(clientSocket)
     EndIf 
@@ -168,12 +181,12 @@ If CreateNetworkServer(#Server,#ServerPort)
           ClientName$ = StringField(recStr$,2,"//")
           
           If (*serverInfo\IsPasswd And StringField(recStr$,3,"//") = Passwd$) Or (Not *serverInfo\IsPasswd)
-            If Not FindMapElement(AuthClients(),ClientName$) And Not FindString(ClientName$," ");Le client n'est pas déja connecté
+            If Not FindMapElement(AuthClients(),ClientSocket$) And CheckName(ClientName$);Le client n'est pas déja connecté
               With  AuthClients(ClientSocket$)
                 \ClientName = ClientName$
                 \ClientSocket = clientSocket
                 \ClientIP = clientIP
-                \ConnectionTime = ElapsedMilliseconds()
+                \ConnectionTime = Date()
                 \AdmFlags = *serverInfo\defFlags
               EndWith
               
@@ -185,11 +198,11 @@ If CreateNetworkServer(#Server,#ServerPort)
               
               DeleteMapElement(WaitingClients(),ClientSocket$)
             Else
-              SendNetworkString(clientSocket,"ERR NAME_IN_USE",#PB_UTF8) ;Ce nom d'utilisateur est déja utilisé
+              SendNetworkString(clientSocket,"ERR NAME_IN_USE : This username is already used or reserved",#PB_UTF8) ;Ce nom d'utilisateur est déja utilisé
               Error("Error : Name "+ClientName$+" already allocated")
             EndIf
           Else
-            SendNetworkString(clientSocket,"ERR BAD_AUTH",#PB_UTF8) ;Authentification refusée (pas de mot de passe ou mt de psse incorrect)
+            SendNetworkString(clientSocket,"ERR BAD_AUTH : Wrong password",#PB_UTF8) ;Authentification refusée (pas de mot de passe ou mt de psse incorrect)
             Error("Error :"+ClientName$+" refused")
           EndIf
           
@@ -230,15 +243,17 @@ If CreateNetworkServer(#Server,#ServerPort)
         Next
         Prompt()
         
-      Case #PB_NetworkEvent_None
+      Case #PB_NetworkEvent_None ;Gestion de l'interface terminal
         InKey$ = Inkey()
         Raw = RawKey()
-        If InKey$ <> ""
+        
+        If InKey$ <> "" And Raw <> #KeyCode_Enter
           Input$ + InKey$
           Print(InKey$)
         EndIf
+        
         Select Raw
-          Case #KeyCode_Enter ;La touche Entrée a été utilisée
+          Case #KeyCode_Enter
             ExecCommand(Input$,@Server)
             Input$ = ""
             
@@ -374,6 +389,37 @@ Procedure ExecCommand(Command$,*user.ACL)
           SendMessage(*user\ClientSocket,"Priviléges insuffisants pour l'exécution de cette commande",1)
         EndIf
         
+      Case "/help"
+        returnString$ = ~"Aide des commandes du serveur R2C2\nPréfixes utilisés ici : adm : Administrateur, mod : Modérateur, ait : Administrateur Interne Total (réservé)\n\t/help : cette commande.\n\t/list : Liste tous les utilisateurs connectés\n\t/mp <utilisateur> \"message\" : Envoie un message privé à <utilisateur>. Le message doit être compris entre \".\n\t/say \"message\" (adm): Envoie un message à tous les utilisateurs du serveur, en tant qu'info du serveur.\n\t/adm <user>, /mod <user>, /ait <user> : (ait) Modifie le rang de l'utilisateur <user>.\n\t/ban <user> \"raison\" : (mod) Bannit l'utilisateur <user> et affiche le message de ban avec la raison spécifiée.\n\t/motd : Affiche le message de bienvenue du serveur.\n\t/desc : Affiche la description du serveur." 
+        SendMessage(*user\ClientSocket,returnString$)
+        
+      Case "/set"
+        If *user\AdmFlags & #CMD_Supremacy
+          Property$ = StringField(Command$,2," ")
+          Value$ = StringField(Command$,3," ")
+          If Property$ = "" Or Value$ = ""
+            SendMessage(*user\ClientSocket,"Usage : /set <property> <value>",1)
+          Else
+            SendMessage(*user\ClientSocket,SetR2C2ServerAttribute(Property$,Value$),1)
+          EndIf
+        Else
+          SendMessage(*user\ClientSocket,"Priviléges insuffisants pour l'exécution de cette commande",1)
+        EndIf
+        
+      Case "/info"
+        If *user\AdmFlags & #CMD_UserManagement
+          SendMessage(*user\ClientSocket,"Informations serveur :"+#LineBreak$+
+                                         "Nom : "+*serverInfo\ServerName+#LineBreak$+
+                                         "MotD: "+*serverInfo\MotD+#LineBreak$+
+                                         "Description : "+*serverInfo\Desc+#LineBreak$+
+                                         "Mot de passe: "+Passwd$+#LineBreak$+
+                                         "Utilise le mot de passe : "+*serverInfo\IsPasswd+#LineBreak$+
+                                         "RegEx de pseudo : "+*serverInfo\RegEx_Username+#LineBreak$+
+                                         "RegEx de mdp : "+*serverInfo\RegEx_Passwd+#LineBreak$,1)
+        Else
+          SendMessage(*user\ClientSocket,"Priviléges insuffisants pour l'exécution de cette commande",1)
+        EndIf
+        
       Case "/quit"
         If *user\AdmFlags & #CMD_Kill
           End
@@ -428,6 +474,46 @@ Procedure GetClientSocketByName(Name$)
   ProcedureReturn 0
 EndProcedure
 
+Procedure.s SetR2C2ServerAttribute(Attribute$, Value$)
+  Select Attribute$
+    Case "motd"
+      *serverInfo\MotD = Value$
+      
+    Case "desc"
+      *serverInfo\Desc = Value$
+      
+    Case "name"
+      *serverInfo\ServerName = Value$
+      
+    Case "hostname"
+      *serverInfo\ServerName = Value$
+      ServerPrompt$ = Value$
+      
+    Case "enable-password"
+      *serverInfo\IsPasswd = Bool(Val(Value$))
+      
+    Case "password"
+      Passwd$ = Value$
+    Default
+      ProcedureReturn "L'attribut "+Attribute$+" n'existe pas"
+  EndSelect
+  ProcedureReturn "Attribut "+Attribute$+" modifié sur "+Value$
+EndProcedure
+
+Procedure CheckName(Name$)
+  ForEach AuthClients()
+    If AuthClients()\ClientName = Name$
+      ProcedureReturn 0
+    EndIf
+  Next
+  
+  If MatchRegularExpression(#RegEx_Username,Name$)
+    ProcedureReturn 1
+  Else
+    ProcedureReturn 0
+  EndIf
+EndProcedure
+
 Procedure SetClientLevel(socket, AdminFlags.b)
   
   If Not socket
@@ -451,13 +537,13 @@ Procedure SetClientLevel(socket, AdminFlags.b)
 EndProcedure
 ; IDE Options = PureBasic 5.51 (Linux - x64)
 ; ExecutableFormat = Console
-; CursorPosition = 354
-; FirstLine = 418
+; CursorPosition = 46
+; FirstLine = 20
 ; Folding = --
 ; EnableXP
 ; Executable = R2C2_Server.app
 ; CompileSourceDirectory
 ; Compiler = PureBasic 5.51 (Linux - x64)
-; EnableCompileCount = 18
-; EnableBuildCount = 6
+; EnableCompileCount = 27
+; EnableBuildCount = 11
 ; EnableExeConstant

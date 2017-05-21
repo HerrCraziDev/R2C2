@@ -345,11 +345,11 @@ EndProcedure
 ; IDE Options = PureBasic 5.51 (Linux - x64)
 ; ExecutableFormat = Console
 ; CursorPosition = 320
-; FirstLine = 310
+; FirstLine = 279
 ; Folding = --
 ; EnableXP
 ; Executable = R2C2_Client.app
 ; CompileSourceDirectory
-; EnableCompileCount = 5
-; EnableBuildCount = 3
+; EnableCompileCount = 6
+; EnableBuildCount = 4
 ; EnableExeConstant
